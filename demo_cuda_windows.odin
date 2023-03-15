@@ -41,7 +41,7 @@ main :: proc() {
 
     if len(os.args) != 2 {
         log.warn("使い方: demo <文章>")
-        text = cstring("初めまして!")
+        text = cstring("ありがとうございます。")
     } else {
         text = strings.clone_to_cstring(os.args[1])
     }
@@ -70,8 +70,8 @@ main :: proc() {
     //speaker_id := u32(20) // もち子さん
     //speaker_id := u32(29) // No.7 "ノーマル"
     //speaker_id := u32(31) // No.7 "読み聞かせ"
-    speaker_id := u32(47) // ナースロボ＿タイプＴ "ノーマル"
-    //speaker_id := u32(50) // ナースロボ＿タイプＴ "内緒話"
+    //speaker_id := u32(47) // ナースロボ＿タイプＴ "ノーマル"
+    speaker_id := u32(50) // ナースロボ＿タイプＴ "内緒話"
 
     if ret := load_model(speaker_id); ret != .OK {
         log.errorf("voicevox_load_model failed due to %v", ret)
@@ -81,16 +81,25 @@ main :: proc() {
     output_wav_size := uint(0)
     output_wav : [^]byte
     log.info("音声生成中...")
-    if ret := tts(text, speaker_id, make_default_tts_options(), &output_wav_size, &output_wav); ret != .OK {
-        log.errorf("voicevox_tts failed due to %v", ret)
-        return
-    }
-    // output_audio_query_json : cstring
-    // if ret := audio_query(text, speaker_id, make_default_audio_query_options(), &output_audio_query_json); ret != .OK {
-    //     log.errorf("voicevox_audio_query failed due to %v", ret)
+    // if ret := tts(text, speaker_id, make_default_tts_options(), &output_wav_size, &output_wav); ret != .OK {
+    //     log.errorf("voicevox_tts failed due to %v", ret)
     //     return
     // }
-    // log.infof("%v", output_audio_query_json)
+    output_audio_query_json : cstring
+    if ret := audio_query(text, speaker_id, make_default_audio_query_options(), &output_audio_query_json); ret != .OK {
+        log.errorf("voicevox_audio_query failed due to %v", ret)
+        return
+    }
+    //log.infof("%v", output_audio_query_json)
+    audio_query_model, ok := voicevox_core.from_audio_query_json(output_audio_query_json)
+    assert(ok)
+    audio_query_model.speed_scale = 1.125
+    //log.infof("%v", voicevox_core.to_audio_query_json(audio_query_model))
+    if ret := synthesis(voicevox_core.to_audio_query_json(audio_query_model), speaker_id, make_default_synthesis_options(), &output_wav_size, &output_wav); ret != .OK {
+        log.errorf("voicevox_synthesis failed due to %v", ret)
+        return
+    }
+    audio_query_json_free(output_audio_query_json)
 
     log.info("音声ファイル保存中...")
     out_dir :: "./out.wav"
